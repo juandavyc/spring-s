@@ -28,7 +28,6 @@ public class ApplicationConfig {
     * Define un proveedor de autenticación (AuthenticationProvider).
     * Usa DaoAuthenticationProvider, que es el que verifica usuarios en la base de datos.
     *
-    *
      */
     @Bean
     public AuthenticationProvider authenticationProvider(

@@ -1,24 +1,30 @@
 package com.juandavyc.SpringSecEx.entity.user;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import org.hibernate.engine.internal.Cascade;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import javax.lang.model.element.NestingKind;
-import java.util.Collection;
-import java.util.List;
 
-@Data
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 
-@Entity(name = "users")
+@Setter
+@Getter
+@ToString
+
+@Entity
+@Table(name = "users")
 public class UserEntity implements UserDetails {
 
     @Id
@@ -34,15 +40,38 @@ public class UserEntity implements UserDetails {
     private String country;
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    private Role role;
+//    @Enumerated(EnumType.STRING)
+//    private Role role;
+
+
+    @ManyToMany(
+            fetch = FetchType.EAGER,
+            cascade = {CascadeType.DETACH, CascadeType.MERGE, CascadeType.PERSIST, CascadeType.REFRESH})
+
+    @JoinTable(
+            name = "user_role",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+
+    private Set<RoleEntity> roles = new HashSet<>();
 
 
     @Override
+
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(
-                new SimpleGrantedAuthority(role.name())
-        );
+
+        List<SimpleGrantedAuthority> roles = new java.util.ArrayList<>(getRoles()
+                .stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName().name())).toList());
+
+        getRoles().stream()
+                .flatMap(role->role.getPermissions().stream())
+                .forEach(permission->{
+                    roles.add(new SimpleGrantedAuthority(permission.getName().name()));
+                });
+
+        return roles;
     }
 
     @Override

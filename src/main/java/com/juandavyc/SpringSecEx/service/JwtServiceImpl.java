@@ -18,16 +18,13 @@ import javax.crypto.SecretKey;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Service
 public class JwtServiceImpl implements JwtService {
 
-    private String secretKey = "";
+    private final String secretKey;
 
     public JwtServiceImpl() {
         try {
@@ -45,6 +42,20 @@ public class JwtServiceImpl implements JwtService {
     public String getToken(UserEntity user /*UserDetails*/) {
 
         Map<String, Object> claims = new HashMap<>();
+
+        final var roles = user.getRoles()
+                .stream()
+                .map(roleEntity -> roleEntity.getName().name())
+                .toList();
+
+        final var permissions = user.getRoles()
+                .stream()
+                .flatMap(roleEntity -> roleEntity.getPermissions().stream())
+                .map(permissionEntity -> permissionEntity.getName().name())
+                .toList();
+
+        claims.put("roles", roles);
+        claims.put("permission", permissions);
 
         return Jwts.builder()
                 .claims(claims)
@@ -66,6 +77,17 @@ public class JwtServiceImpl implements JwtService {
         return getClaim(token, Claims::getSubject);
     }
 
+    public List<String> getRolesFromToken(String token) {
+        Claims claims = getAllClaims(token);
+        return claims.get("roles", List.class);
+    }
+
+    public List<String> getPermissionsFromToken(String token) {
+        Claims claims = getAllClaims(token);
+        return claims.get("permission", List.class);
+    }
+
+
     //    private Key getKey() {
 //        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
 //        return Keys.hmacShaKeyFor(keyBytes);
@@ -77,13 +99,12 @@ public class JwtServiceImpl implements JwtService {
 
     private Claims getAllClaims(String token) {
         SecretKey key = getKey();
+
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token) // Usa parseSignedClaims en lugar de parseClaimsJws
                 .getPayload();
-
-
     }
 
     public <T> T getClaim(String token, Function<Claims, T> claims) {
@@ -94,7 +115,8 @@ public class JwtServiceImpl implements JwtService {
     public Date getExpirationDate(String token) {
         return getClaim(token, Claims::getExpiration);
     }
+
     private Boolean isTokenExpired(String token) {
-       return getExpirationDate(token).before(Date.from(Instant.now()));
+        return getExpirationDate(token).before(Date.from(Instant.now()));
     }
 }

@@ -5,6 +5,7 @@ import com.juandavyc.SpringSecEx.dto.LoginRequest;
 import com.juandavyc.SpringSecEx.dto.RegisterRequest;
 
 import com.juandavyc.SpringSecEx.entity.user.Role;
+import com.juandavyc.SpringSecEx.entity.user.RoleEntity;
 import com.juandavyc.SpringSecEx.entity.user.UserEntity;
 import com.juandavyc.SpringSecEx.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +32,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
 
+    private final RoleService roleService;
+
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -41,7 +47,9 @@ public class AuthServiceImpl implements AuthService {
 
 
         final var user = userRepository.findByUsername(request.getUsername());
+        System.out.println(user);
         String token = jwtService.getToken(user);
+
         return AuthResponse.builder()
                 .token(token)
                 .build();
@@ -50,13 +58,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse register(RegisterRequest request) {
         // mapper
+
+        Set<RoleEntity> roles = new HashSet<>();
+        request.getRoles().forEach(role -> {
+            roles.add(roleService.findById(role));
+        });
+
         UserEntity user = UserEntity.builder()
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
                 .country(request.getCountry())
-                .role(Role.USER)
+                .roles(roles)
                 .build();
 
         final var userCreated = userRepository.save(user);

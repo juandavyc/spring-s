@@ -24,18 +24,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(csrf->csrf.disable()) //
-                .authorizeHttpRequests(auth ->
-                        auth
-                                .requestMatchers("/auth/**").permitAll()
-                                .anyRequest().authenticated()
+                .csrf(csrf -> csrf.disable()) // Deshabilitar CSRF (útil para APIs)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/auth/**").permitAll() // Permitir autenticación sin token
+                        .anyRequest().authenticated() // Proteger el resto
                 )
-                //.formLogin(Customizer.withDefaults())
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.NEVER)
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS) // JWT es stateless
                 )
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .authenticationProvider(authenticationProvider) // Proveedor de autenticación personalizado
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) // Filtro JWT
                 .build();
 
     }

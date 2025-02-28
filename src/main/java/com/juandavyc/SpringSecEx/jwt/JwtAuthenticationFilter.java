@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -18,6 +20,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -35,6 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter /* solo se eje
         final String username;
 
 
+
         if (token == null) {
             filterChain.doFilter(request, response);
             return;
@@ -47,12 +53,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter /* solo se eje
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             if(jwtService.isTokenValid(token,userDetails)){
                 // actualizar security holder
+                Collection<? extends GrantedAuthority> authorities = getAuthorities(token);
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities()
+                                userDetails, null,authorities
                         );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+              //  authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
@@ -71,5 +78,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter /* solo se eje
         return null;
 
     }
+
+    private Collection<? extends GrantedAuthority> getAuthorities(String token) {
+        List<String> roles = jwtService.getRolesFromToken(token);
+        List<String> permissions = jwtService.getPermissionsFromToken(token);
+
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+        // Agregar roles con el prefijo "ROLE_"
+        roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role)));
+
+        // Agregar permisos sin prefijo
+        permissions.forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
+
+        System.out.println("Roles: " + jwtService.getRolesFromToken(token));
+        System.out.println("Permissions: " + jwtService.getPermissionsFromToken(token));
+
+        return authorities;
+    }
+
 
 }
