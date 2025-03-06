@@ -1,6 +1,5 @@
 package com.juandavyc.SpringSecEx.config;
 
-import com.juandavyc.SpringSecEx.service.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -10,9 +9,26 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.webauthn.api.PublicKeyCose;
 
 @Configuration
 public class ApplicationConfig {
+
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(
+        PasswordEncoder passwordEncoder,
+        UserDetailsService userDetailsService
+
+    ) {
+        DaoAuthenticationProvider daoAuthenticationProvider =
+                new DaoAuthenticationProvider();
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder);
+        daoAuthenticationProvider.setUserDetailsService(userDetailsService);
+
+        return daoAuthenticationProvider;
+    }
+
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
@@ -20,23 +36,8 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(
-            PasswordEncoder passwordEncoder,
-            UserDetailsService userDetailsService
-    ) {
-        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
-
-        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder);
-        daoAuthenticationProvider.setUserDetailsService(userDetailsService);
-
-        return daoAuthenticationProvider;
-    }
-
-    @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
-
-
 
 }

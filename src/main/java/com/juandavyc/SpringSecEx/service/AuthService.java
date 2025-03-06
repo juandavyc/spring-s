@@ -5,7 +5,6 @@ import com.juandavyc.SpringSecEx.dto.LoginResponseDTO;
 
 public interface AuthService {
 
-    LoginResponseDTO login(LoginRequestDTO loginRequestDTO);
-
+    LoginResponseDTO login(LoginRequestDTO request);
 
 }

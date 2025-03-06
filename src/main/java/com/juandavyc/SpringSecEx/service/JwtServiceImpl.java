@@ -1,6 +1,5 @@
 package com.juandavyc.SpringSecEx.service;
 
-import com.juandavyc.SpringSecEx.entity.UserEntity;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -8,14 +7,14 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -27,42 +26,48 @@ public class JwtServiceImpl implements JwtService {
     private final String secretKey;
 
     public JwtServiceImpl() {
-        // create the secret key dynamic
+
         try {
+
             KeyGenerator keyGenerator = KeyGenerator.getInstance("HmacSHA256");
             secretKey = Base64.getEncoder().encodeToString(keyGenerator.generateKey().getEncoded());
+
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+
+
     }
 
     @Override
-    public String getToken(UserEntity user) {
+    public String getToken(UserDetails userDetails) {
 
         Map<String, Object> claims = new HashMap<>();
-        // TODO: create bean
-        Set<String> roles = user.getRoles()
-                .stream()
-                .map(roleEntity -> roleEntity.getName().name())
-                .collect(Collectors.toSet());
 
+        Set<String> roles = new HashSet<>();
+        Set<String> authorities = new HashSet<>();
 
-        Set<String> permissions = user.getRoles()
-                .stream()
-                .flatMap(roleEntity -> roleEntity.getPermissions().stream())
-                .map(permissionEntity -> permissionEntity.getName().name())
-                .collect(Collectors.toSet());
+        userDetails.getAuthorities()
+                .forEach(authority -> {
+                    if (authority.getAuthority().startsWith("ROLE_")) {
+                        roles.add(authority.getAuthority());
+                    } else {
+                        authorities.add(authority.getAuthority());
+                    }
+                });
 
         claims.put("roles", roles);
-        claims.put("authorities", permissions);
+        claims.put("authorities", authorities);
+
 
         return Jwts.builder()
-                .subject(user.getUsername())
+                .signWith(getSecretKey())
+                .subject(userDetails.getUsername())
                 .claims(claims)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 2 * 60 * 1000))
-                .signWith(getSecretKey())
+                .expiration(new Date(System.currentTimeMillis() + 30 * 60 * 1000)) // 30 minutes
                 .compact();
+
     }
 
     @Override
@@ -71,64 +76,61 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public boolean isTokenValid(String token) {
-      return !isTokenExpired(token);
+    public Boolean isValid(String token) {
+        return !isExpired(token);
     }
 
     @Override
-    public List<String> getRolesFromToken(String token) {
-
+    public List<GrantedAuthority> getAuthorities(String token) {
         final var claims = getClaimsFromToken(token);
-        // System.out.println(claims.get("roles"));
-        return claims.get("roles", List.class);
 
+        Set<String> authoritiesSet = new HashSet<>();
+        List<String> roles = claims.get("roles", List.class);
+        List<String> authorities = claims.get("authorities", List.class);
+
+        authoritiesSet.addAll(roles);
+        authoritiesSet.addAll(authorities);
+
+        return authoritiesSet.stream().map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
     }
 
-    @Override
-    public List<String> getAuthoritiesFromToken(String token) {
-        final var claims = getClaimsFromToken(token);
-        return claims.get("authorities", List.class);
-    }
-
-    // internal service
-
-    private Date getExpirationToken(String token) {
-        return getClaimFromToken(token, Claims::getExpiration);
-
-    }
-
-    private boolean isTokenExpired(String token) {
-        return getExpirationToken(token).before(new Date());
-    }
 
     private SecretKey getSecretKey() {
-
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
-        return Keys.hmacShaKeyFor(keyBytes);
-
+        byte[] encodedKey = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(encodedKey);
     }
 
-    private Jws<Claims> isSignedToken(String token) {
+    // claims
+
+    private Boolean isExpired(String token) {
+        return getExpirationFromToken(token).before(new Date());
+    }
+
+    private Date getExpirationFromToken(String token) {
+        return getClaimFromToken(token, Claims::getExpiration);
+    }
+
+    private Jws<Claims> isSigned(String token) {
         try {
             return Jwts.parser()
                     .verifyWith(getSecretKey())
                     .build()
                     .parseSignedClaims(token);
         } catch (Exception e) {
-            throw new IllegalStateException("token is not signed");
+            throw new IllegalStateException("JWT token is not signed");
         }
     }
 
-
     private Claims getClaimsFromToken(String token) {
-        return isSignedToken(token).getPayload();
+        return isSigned(token).getPayload();
     }
+
 
 
     private <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = getClaimsFromToken(token);
         return claimsResolver.apply(claims);
     }
-
 
 }

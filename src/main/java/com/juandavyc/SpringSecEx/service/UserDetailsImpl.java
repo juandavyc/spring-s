@@ -1,6 +1,5 @@
 package com.juandavyc.SpringSecEx.service;
 
-
 import com.juandavyc.SpringSecEx.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -11,29 +10,39 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class UserDetailsServiceImpl implements UserDetailsService {
+public class UserDetailsImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String username) {
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
         final var userEntity = userRepository.findByUsername(username)
-                .orElseThrow(()-> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        Set<GrantedAuthority> roles = userEntity.getRoles()
-                .stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_".concat(role.getName().name())))
-                .collect(Collectors.toSet());
+        Set<GrantedAuthority> authorities = new HashSet<>(
+                userEntity.getRoles()
+                        .stream()
+                        .map(roleEntity -> new SimpleGrantedAuthority(
+                                "ROLE_".concat(roleEntity.getName().name()))
+                        )
+                        .collect(Collectors.toSet())
+        );
 
         userEntity.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .forEach(permission -> roles.add(new SimpleGrantedAuthority(permission.getName().name())));
+                .flatMap(roleEntity -> roleEntity.getPermissions().stream())
+                .forEach(permissionEntity ->
+                        authorities.add(
+                                new SimpleGrantedAuthority(permissionEntity.getName().name())
+                        )
+                );
 
         return new User(
                 userEntity.getUsername(),
@@ -42,7 +51,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 userEntity.isAccountNoExpired(),
                 userEntity.isCredentialNoExpired(),
                 userEntity.isAccountNoLocked(),
-                roles
+                authorities
         );
     }
+
 }
