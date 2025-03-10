@@ -27,9 +27,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         return http.csrf(csrf -> csrf.disable())
-                //.cors(Customizer.withDefaults())
+                // .cors(Customizer.withDefaults())
                 .formLogin(login -> login.disable())
-                .httpBasic(Customizer.withDefaults())
+                // .httpBasic(Customizer.withDefaults()) 
                 // set session management to stateless
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> {
